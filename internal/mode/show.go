@@ -8,9 +8,9 @@ import (
 	"github.com/shezw/ai-terminal/internal/render"
 )
 
-const systemPromptEN = `You are a service assistant designed solely for command-line operations. Please analyze the following content and provide recommended command-line operations with their explanations. Each command should be on its own line.`
+const systemPromptEN = "You are a service assistant designed solely for command-line operations. Please analyze the following content and provide recommended command-line operations with their explanations. Each command should be on its own line."
 
-const systemPromptZH = `你是一个仅用于命令行操作的服务助手。请根据以下内容做出分析，给出建议的命令行操作和相应的说明。每个指令单独一行。`
+const systemPromptZH = "\u4f60\u662f\u4e00\u4e2a\u4ec5\u7528\u4e8e\u547d\u4ee4\u884c\u64cd\u4f5c\u7684\u670d\u52a1\u52a9\u624b\u3002\u8bf7\u6839\u636e\u4ee5\u4e0b\u5185\u5bb9\u505a\u51fa\u5206\u6790\uff0c\u7ed9\u51fa\u5efa\u8bae\u7684\u547d\u4ee4\u884c\u64cd\u4f5c\u548c\u76f8\u5e94\u7684\u8bf4\u660e\u3002\u6bcf\u4e2a\u6307\u4ee4\u5355\u72ec\u4e00\u884c\u3002"
 
 func SystemPrompt(lang string) string {
 	if lang == "zh" {
@@ -19,22 +19,31 @@ func SystemPrompt(lang string) string {
 	return systemPromptEN
 }
 
-func RunShow(ctx context.Context, client llm.Client, request string, lang string, remKV map[string]string) error {
-	messages := buildMessages(lang, request, remKV)
+func RunShow(ctx context.Context, client llm.Client, request string, lang string, remKV map[string]string, think bool) error {
+	messages := buildMessages(lang, request, remKV, think)
 
-	resp, err := client.Chat(ctx, messages)
+	// Use streaming
+	state := render.NewStreamState()
+	_, err := client.ChatStream(ctx, messages, func(chunk string) {
+		state.RenderChunk(chunk)
+	})
+	state.Flush()
+
 	if err != nil {
 		return fmt.Errorf("LLM request failed: %w", err)
 	}
 
-	output := render.RenderResponse(resp)
-	fmt.Print(output)
 	return nil
 }
 
-func buildMessages(lang string, request string, remKV map[string]string) []llm.Message {
+func buildMessages(lang string, request string, remKV map[string]string, think bool) []llm.Message {
+	sysPrompt := SystemPrompt(lang)
+	if think {
+		sysPrompt += "\nPlease think step by step before answering."
+	}
+
 	messages := []llm.Message{
-		{Role: "system", Content: SystemPrompt(lang)},
+		{Role: "system", Content: sysPrompt},
 	}
 
 	if len(remKV) > 0 {

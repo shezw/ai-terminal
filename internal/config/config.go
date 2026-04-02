@@ -24,11 +24,11 @@ type ExecSafety struct {
 }
 
 type Config struct {
-	Mode   string       `yaml:"mode"`
-	Server ServerConfig `yaml:"server"`
-	API    APIConfig    `yaml:"api"`
-	Safety ExecSafety   `yaml:"safety"`
-	Language string     `yaml:"language"`
+	Mode     string       `yaml:"mode"`
+	Server   ServerConfig `yaml:"server"`
+	API      APIConfig    `yaml:"api"`
+	Safety   ExecSafety   `yaml:"safety"`
+	Language string       `yaml:"language"`
 }
 
 func DefaultConfig() *Config {

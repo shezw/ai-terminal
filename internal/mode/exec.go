@@ -15,9 +15,9 @@ import (
 	"github.com/shezw/ai-terminal/internal/safety"
 )
 
-const execSystemPromptEN = `You are a service assistant designed solely for command-line operations. Analyze the following request and provide the exact commands to execute. Wrap each command in <icmd>command</icmd> tags. Each command on its own line.`
+const execSystemPromptEN = "You are a service assistant designed solely for command-line operations. Analyze the following request and provide the exact commands to execute. Wrap each command in <icmd>command</icmd> tags. Each command on its own line."
 
-const execSystemPromptZH = `你是一个仅用于命令行操作的服务助手。分析以下请求并提供需要执行的精确命令。每条命令用 <icmd>command</icmd> 标签包裹，每条命令独立一行。`
+const execSystemPromptZH = "\u4f60\u662f\u4e00\u4e2a\u4ec5\u7528\u4e8e\u547d\u4ee4\u884c\u64cd\u4f5c\u7684\u670d\u52a1\u52a9\u624b\u3002\u5206\u6790\u4ee5\u4e0b\u8bf7\u6c42\u5e76\u63d0\u4f9b\u9700\u8981\u6267\u884c\u7684\u7cbe\u786e\u547d\u4ee4\u3002\u6bcf\u6761\u547d\u4ee4\u7528 <icmd>command</icmd> \u6807\u7b7e\u5305\u88f9\uff0c\u6bcf\u6761\u547d\u4ee4\u72ec\u7acb\u4e00\u884c\u3002"
 
 var icmdRegex = regexp.MustCompile(`<icmd>(.*?)</icmd>`)
 var pathRegex = regexp.MustCompile(`(?:^|[\s"'])(/[^\s"']+|~[^\s"']*)`)
@@ -29,9 +29,14 @@ func ExecSystemPrompt(lang string) string {
 	return execSystemPromptEN
 }
 
-func RunExec(ctx context.Context, client llm.Client, request string, lang string, cfg *config.ExecSafety, remKV map[string]string) error {
+func RunExec(ctx context.Context, client llm.Client, request string, lang string, cfg *config.ExecSafety, remKV map[string]string, think bool) error {
+	sysPrompt := ExecSystemPrompt(lang)
+	if think {
+		sysPrompt += "\nPlease think step by step before answering."
+	}
+
 	messages := []llm.Message{
-		{Role: "system", Content: ExecSystemPrompt(lang)},
+		{Role: "system", Content: sysPrompt},
 	}
 
 	if len(remKV) > 0 {
@@ -50,26 +55,24 @@ func RunExec(ctx context.Context, client llm.Client, request string, lang string
 		Content: request,
 	})
 
-	resp, err := client.Chat(ctx, messages)
+	// Streaming: collect full response while displaying think blocks
+	state := render.NewStreamState()
+	resp, err := client.ChatStream(ctx, messages, func(chunk string) {
+		state.RenderChunk(chunk)
+	})
+	state.Flush()
+
 	if err != nil {
 		return fmt.Errorf("LLM request failed: %w", err)
 	}
 
-	output := render.RenderResponse(resp)
-
-	commands := icmdRegex.FindAllStringSubmatch(output, -1)
+	// Extract commands from full response
+	commands := icmdRegex.FindAllStringSubmatch(resp, -1)
 	if len(commands) == 0 {
-		fmt.Print(output)
 		return nil
 	}
 
-	cleanOutput := icmdRegex.ReplaceAllString(output, "")
-	cleanOutput = strings.TrimSpace(cleanOutput)
-	if cleanOutput != "" {
-		fmt.Println(cleanOutput)
-		fmt.Println()
-	}
-
+	fmt.Println()
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for i, match := range commands {

@@ -4,12 +4,21 @@
 
 ## Features
 
-- **show** — 自然语言 → 命令行建议
+- **show** — 自然语言 → 命令行建议（流式输出）
 - **exec** — 自然语言 → 安全执行命令（白名单/黑名单）
-- **model** — 本地模型管理
+- **model** — 本地模型管理（自动下载 Qwen3 GGUF）
 - **rem** — K-V 偏好记忆
+- **--think** — 启用思考链输出
 
-## Quick Start
+## One-Click Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shezw/ai-terminal/main/scripts/quick-install.sh | bash
+```
+
+需要预编译的 release 发布到 GitHub Releases。
+
+## Build from Source
 
 ```bash
 # Build
@@ -29,9 +38,17 @@ api:
 language: zh
 EOF
 
-# Use
+# Or use a local model
+ai-terminal model install
+```
+
+## Usage
+
+```bash
 ai-terminal '列出所有运行中的docker容器'
 ai-terminal exec '创建一个hello.txt文件'
+ai-terminal show --think '分析磁盘用量'
+ai-terminal exec --think '清理docker缓存'
 ```
 
 ## Shortcuts
@@ -40,8 +57,8 @@ ai-terminal exec '创建一个hello.txt文件'
 |---------|-----------|
 | `@` | `ai-terminal` |
 | `@!` | `ai-terminal exec` |
-| `@$` | `ai-terminal show --think` |
-| `@!$` | `ai-terminal exec --think` |
+| `@#` | `ai-terminal show --think` |
+| `@!#` | `ai-terminal exec --think` |
 
 ## Safety
 

@@ -18,12 +18,10 @@ chmod +x "$PREFIX/ai-terminal"
 echo "  ✓ ai-terminal"
 
 # Create symlinks for wrapper scripts
-WRAPPERS=("@" "@!" "@\$" "@!\$")
-WRAPPER_SCRIPTS=("@.sh" "@!.sh" "@\$.sh" "@!\$.sh")
+WRAPPERS=("@" "@!" "@#" "@!#")
 
-for i in "${!WRAPPERS[@]}"; do
-    name="${WRAPPERS[$i]}"
-    script="scripts/wrappers/${WRAPPER_SCRIPTS[$i]}"
+for name in "${WRAPPERS[@]}"; do
+    script="scripts/wrappers/$name"
     if [ -f "$script" ]; then
         cp "$script" "$PREFIX/$name"
         chmod +x "$PREFIX/$name"

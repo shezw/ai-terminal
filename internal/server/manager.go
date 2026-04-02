@@ -23,9 +23,13 @@ func Start(cfg *config.ServerConfig) error {
 		return nil
 	}
 
-	llamaPath, err := exec.LookPath("llama-server")
-	if err != nil {
-		return fmt.Errorf("llama-server not found in PATH; install llama.cpp first")
+	llamaPath := LlamaServerBinPath()
+	if _, err := os.Stat(llamaPath); err != nil {
+		var lookErr error
+		llamaPath, lookErr = exec.LookPath("llama-server")
+		if lookErr != nil {
+			return fmt.Errorf("llama-server not found; run 'ai-terminal model install' first")
+		}
 	}
 
 	if cfg.ModelPath == "" {

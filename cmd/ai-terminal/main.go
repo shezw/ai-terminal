@@ -15,7 +15,7 @@ import (
 	"github.com/shezw/ai-terminal/internal/server"
 )
 
-var version = "1.0.0"
+var version = "1.1.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -160,7 +160,7 @@ func runShowMode(ctx context.Context, request string, opts *Options) error {
 		remKV = make(map[string]string)
 	}
 
-	return mode.RunShow(ctx, client, request, cfg.Language, remKV)
+	return mode.RunShow(ctx, client, request, cfg.Language, remKV, opts.Think)
 }
 
 func runExecMode(ctx context.Context, request string, opts *Options) error {
@@ -190,7 +190,7 @@ func runExecMode(ctx context.Context, request string, opts *Options) error {
 		remKV = make(map[string]string)
 	}
 
-	return mode.RunExec(ctx, client, request, cfg.Language, &safetyCfg, remKV)
+	return mode.RunExec(ctx, client, request, cfg.Language, &safetyCfg, remKV, opts.Think)
 }
 
 func printUsage() {
@@ -202,7 +202,7 @@ func printUsage() {
 	fmt.Println("Modes:")
 	fmt.Println("  show      Analyze and suggest commands (default)")
 	fmt.Println("  exec      Analyze and execute commands with safety checks")
-	fmt.Println("  model     Manage local LLM models")
+	fmt.Println("  model     Manage local LLM models (install/list/remove)")
 	fmt.Println("  rem       Save/list key-value preferences")
 	fmt.Println()
 	fmt.Println("Options:")
@@ -216,10 +216,12 @@ func printUsage() {
 	fmt.Println("Shortcuts:")
 	fmt.Println("  @               Alias for ai-terminal")
 	fmt.Println("  @!              Alias for ai-terminal exec")
-	fmt.Println("  @$              Alias for ai-terminal show --think")
-	fmt.Println("  @!$             Alias for ai-terminal exec --think")
+	fmt.Println("  @#              Alias for ai-terminal show --think")
+	fmt.Println("  @!#             Alias for ai-terminal exec --think")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  ai-terminal 'list all docker containers'")
 	fmt.Println("  ai-terminal exec 'create a hello.txt file'")
+	fmt.Println("  ai-terminal rem my-url https://shezw.com")
+	fmt.Println("  ai-terminal model install")
 }
