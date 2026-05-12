@@ -28,6 +28,9 @@ make build
 sudo make install
 
 # Configure API
+ai-terminal model config
+
+# Or write the config file manually
 mkdir -p ~/.ai-terminal
 cat > ~/.ai-terminal/config.yaml << EOF
 mode: api

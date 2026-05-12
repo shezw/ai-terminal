@@ -202,7 +202,7 @@ func printUsage() {
 	fmt.Println("Modes:")
 	fmt.Println("  show      Analyze and suggest commands (default)")
 	fmt.Println("  exec      Analyze and execute commands with safety checks")
-	fmt.Println("  model     Manage local LLM models (install/list/remove)")
+	fmt.Println("  model     Manage model configuration and local LLM models")
 	fmt.Println("  rem       Save/list key-value preferences")
 	fmt.Println()
 	fmt.Println("Options:")
@@ -223,5 +223,6 @@ func printUsage() {
 	fmt.Println("  ai-terminal 'list all docker containers'")
 	fmt.Println("  ai-terminal exec 'create a hello.txt file'")
 	fmt.Println("  ai-terminal rem my-url https://shezw.com")
+	fmt.Println("  ai-terminal model config")
 	fmt.Println("  ai-terminal model install")
 }

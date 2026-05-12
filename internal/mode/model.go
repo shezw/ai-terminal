@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/shezw/ai-terminal/internal/config"
@@ -29,6 +30,8 @@ func RunModel(args []string) error {
 	}
 
 	switch args[0] {
+	case "config":
+		return modelConfig()
 	case "install":
 		return modelInstall()
 	case "list":
@@ -46,13 +49,194 @@ func RunModel(args []string) error {
 func modelMenu() error {
 	fmt.Println("AI Terminal - Model Management")
 	fmt.Println()
+	fmt.Println("  config    - Configure API or local model settings")
 	fmt.Println("  install   - Detect system and install a recommended model")
 	fmt.Println("  list      - List installed models")
 	fmt.Println("  remove    - Remove an installed model")
 	fmt.Println()
-	fmt.Println("Or configure an API endpoint:")
+	fmt.Println("Or configure model settings:")
+	fmt.Println("  ai-terminal model config")
 	fmt.Println("  Edit", config.ConfigFilePath())
 	return nil
+}
+
+func modelConfig() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := runModelConfigInteractive(os.Stdin, os.Stdout, cfg); err != nil {
+		return err
+	}
+
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+
+	render.PrintInfo("Config saved to: " + config.ConfigFilePath())
+	return nil
+}
+
+func runModelConfigInteractive(in io.Reader, out io.Writer, cfg *config.Config) error {
+	reader := bufio.NewReader(in)
+
+	fmt.Fprintln(out, "AI Terminal - Model Configuration")
+	fmt.Fprintf(out, "Config file: %s\n\n", config.ConfigFilePath())
+
+	mode, err := promptChoice(reader, out, "Mode", cfg.Mode, []string{"api", "local"})
+	if err != nil {
+		return err
+	}
+	cfg.Mode = mode
+
+	switch mode {
+	case "api":
+		endpoint, err := promptRequiredString(reader, out, "API endpoint", cfg.API.Endpoint)
+		if err != nil {
+			return err
+		}
+		apiKey, err := promptAPIKey(reader, out, cfg.API.APIKey)
+		if err != nil {
+			return err
+		}
+		model, err := promptRequiredString(reader, out, "Model name", cfg.API.Model)
+		if err != nil {
+			return err
+		}
+
+		cfg.API.Endpoint = endpoint
+		cfg.API.APIKey = apiKey
+		cfg.API.Model = model
+
+		fmt.Fprintf(out, "\nRemote model configured: %s\n", cfg.API.Model)
+	case "local":
+		modelPath, err := promptRequiredString(reader, out, "Local model path", cfg.Server.ModelPath)
+		if err != nil {
+			return err
+		}
+		modelPath, err = config.AbsolutePath(modelPath)
+		if err != nil {
+			return err
+		}
+
+		if _, err := os.Stat(modelPath); err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(out, "Warning: model file not found yet: %s\n", modelPath)
+			} else {
+				return err
+			}
+		}
+
+		port, err := promptPositiveInt(reader, out, "Server port", cfg.Server.Port)
+		if err != nil {
+			return err
+		}
+		contextSize, err := promptPositiveInt(reader, out, "Context size", cfg.Server.ContextSize)
+		if err != nil {
+			return err
+		}
+
+		cfg.Server.ModelPath = modelPath
+		cfg.Server.Port = port
+		cfg.Server.ContextSize = contextSize
+
+		fmt.Fprintf(out, "\nLocal model configured: %s\n", cfg.Server.ModelPath)
+	}
+
+	return nil
+}
+
+func promptChoice(reader *bufio.Reader, out io.Writer, label, defaultValue string, allowed []string) (string, error) {
+	for {
+		value, err := promptString(reader, out, label, defaultValue)
+		if err != nil {
+			return "", err
+		}
+		value = strings.ToLower(strings.TrimSpace(value))
+		for _, option := range allowed {
+			if value == option {
+				return value, nil
+			}
+		}
+		fmt.Fprintf(out, "Invalid value %q. Allowed values: %s\n", value, strings.Join(allowed, "/"))
+	}
+}
+
+func promptRequiredString(reader *bufio.Reader, out io.Writer, label, defaultValue string) (string, error) {
+	for {
+		value, err := promptString(reader, out, label, defaultValue)
+		if err != nil {
+			return "", err
+		}
+		if value != "" {
+			return value, nil
+		}
+		fmt.Fprintf(out, "%s is required.\n", label)
+	}
+}
+
+func promptPositiveInt(reader *bufio.Reader, out io.Writer, label string, defaultValue int) (int, error) {
+	for {
+		value, err := promptString(reader, out, label, strconv.Itoa(defaultValue))
+		if err != nil {
+			return 0, err
+		}
+		parsed, err := strconv.Atoi(value)
+		if err == nil && parsed > 0 {
+			return parsed, nil
+		}
+		fmt.Fprintf(out, "%s must be a positive integer.\n", label)
+	}
+}
+
+func promptAPIKey(reader *bufio.Reader, out io.Writer, current string) (string, error) {
+	prompt := "API key"
+	if current != "" {
+		prompt += " [press Enter to keep current]"
+	} else {
+		prompt += " [optional]"
+	}
+	prompt += ": "
+
+	fmt.Fprint(out, prompt)
+	value, err := readPromptLine(reader)
+	if err != nil {
+		return "", err
+	}
+	if value == "" && current != "" {
+		return current, nil
+	}
+	return value, nil
+}
+
+func promptString(reader *bufio.Reader, out io.Writer, label, defaultValue string) (string, error) {
+	prompt := label
+	if defaultValue != "" {
+		prompt += fmt.Sprintf(" [%s]", defaultValue)
+	}
+	prompt += ": "
+
+	fmt.Fprint(out, prompt)
+	value, err := readPromptLine(reader)
+	if err != nil {
+		return "", err
+	}
+	if value == "" {
+		return defaultValue, nil
+	}
+	return value, nil
+}
+
+func readPromptLine(reader *bufio.Reader) (string, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		if err == io.EOF && line != "" {
+			return strings.TrimSpace(line), nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
 }
 
 func detectSystemTier() string {
